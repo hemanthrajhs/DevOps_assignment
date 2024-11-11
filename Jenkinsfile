@@ -14,14 +14,7 @@ pipeline {
             }
         }
 
-        stage('Unit Test') {
-            steps {
-                // Run unit tests using Maven 
-                sh 'mvn clean test'
-            }
-        }
-
-        stage('Build') {
+     stage('Build and test') {
             steps {
                 sh 'ls -ltr'
                 // Build the project and create a JAR file
