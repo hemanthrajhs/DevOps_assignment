@@ -1,5 +1,10 @@
 pipeline {
-    agent any  // Use a generic agent for the pipeline
+    agent {
+        docker {
+            image 'maven:3.8.6-openjdk-11'  // Maven image with OpenJDK 11
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // Mount Docker socket for Docker-in-Docker use cases
+        }
+    }
     stages {
         stage('Checkout') {
             steps {
