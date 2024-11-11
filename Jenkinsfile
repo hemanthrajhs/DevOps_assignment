@@ -12,7 +12,7 @@ pipeline {
         stage('Start MySQL Container') {
             agent {
                 docker {
-                    image 'docker:latest'
+                    image 'docker:latest' // Correct image name
                     args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
@@ -39,7 +39,7 @@ pipeline {
         stage('Checkout Code') {
             agent {
                 docker {
-                    image 'abhishekf5/maven-abhishek-docker-agent:v1'
+                    image 'abhishekf5/maven-abhishek-docker-agent:v1' // Corrected image name
                     args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
                 }
             }
@@ -54,4 +54,56 @@ pipeline {
         stage('Build and Test') {
             agent {
                 docker {
-                    image 'abhishekf5/maven-abhishek-docker-ag
+                    image 'abhishekf5/maven-abhishek-docker-agent:v1' // Corrected image name
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+                sh 'mvn clean package'
+                sh 'mvn test'
+            }
+        }
+
+        stage('Build Docker Image') {
+            agent {
+                docker {
+                    image 'docker:latest' // Correct image name
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+                script {
+                    sh 'docker build -t myapp:${BUILD_NUMBER} .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            environment {
+                DOCKER_IMAGE = "myapp:${BUILD_NUMBER}"
+                REGISTRY_CREDENTIALS = credentials('docker-cred')
+            }
+            agent {
+                docker {
+                    image 'docker:latest' // Correct image name
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+                }
+            }
+            steps {
+                script {
+                    def dockerImage = docker.image("${DOCKER_IMAGE}")
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
+                        dockerImage.push()
+                    }
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                // Stop and remove MySQL container
+                sh 'docker stop mysql && docker rm mysql'
+            }
+        }
+    }
+}
