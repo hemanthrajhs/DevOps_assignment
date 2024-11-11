@@ -1,18 +1,45 @@
 pipeline {
     agent none  // No global agent, we define agents per stage
 
+    environment {
+        DB_HOST = 'mysql'  // Container name, which is accessible from within the Docker network
+        DB_NAME = 'mydb'  // Your database name
+        DB_USERNAME = 'user'  // Username for the database
+        DB_PASSWORD = 'password'  // Password for the database
+    }
+
     stages {
-        stage('Checkout') {
+        stage('Start MySQL Container') {
             agent {
                 docker {
-                    image 'abhishekf5/maven-abhishek-docker-agent:v1'
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // mount Docker socket to access the host's Docker daemon
+                    image 'docker:latest'  // Use Docker image for Docker operations
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // Mount Docker socket
                 }
             }
             steps {
-                sh 'echo passed'
-                // Uncomment to pull the repository
-                // git branch: 'main', url: 'https://github.com/hemanthrajhs/DevOps_assignment'
+                script {
+                    // Start MySQL container
+                    sh """
+                        docker run --name mysql -e MYSQL_ROOT_PASSWORD=${DB_PASSWORD} \
+                        -e MYSQL_DATABASE=${DB_NAME} -e MYSQL_USER=${DB_USERNAME} \
+                        -e MYSQL_PASSWORD=${DB_PASSWORD} -d -p 3306:3306 mysql:5.7
+                    """
+                    // Wait for the database to initialize (you can adjust the sleep time as necessary)
+                    sh 'sleep 30'  // Wait for MySQL container to be ready
+                }
+            }
+        }
+
+        stage('Checkout Code') {
+            agent {
+                docker {
+                    image 'abhishekf5/maven-abhishek-docker-agent:v1'
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // Mount Docker socket to access Docker daemon
+                }
+            }
+            steps {
+                // Clone the repository and checkout the main branch
+                git branch: 'main', url: 'https://github.com/hemanthrajhs/DevOps_assignment'
             }
         }
 
@@ -20,38 +47,59 @@ pipeline {
             agent {
                 docker {
                     image 'abhishekf5/maven-abhishek-docker-agent:v1'
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // mount Docker socket to access the host's Docker daemon
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // Mount Docker socket to access Docker daemon
                 }
             }
             steps {
-                sh 'ls -ltr'
-                // Build the project and create a JAR file
+                // Build the Spring Boot application
                 sh 'mvn clean package'
+
+                // Optional: Run tests (you can adjust this based on your requirements)
+                sh 'mvn test'
             }
         }
 
-        stage('Build and Push Docker Image') {
-            environment {
-                DOCKER_IMAGE = "hemanthrajhs/app-devops-assign:${BUILD_NUMBER}"
-                REGISTRY_CREDENTIALS = credentials('docker-cred')
-            }
+        stage('Build Docker Image') {
             agent {
                 docker {
-                    image 'docker:latest'  // Use a Docker image for Docker operations
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+                    image 'docker:latest'  // Use Docker image for Docker operations
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // Mount Docker socket
                 }
             }
             steps {
                 script {
-                    // Build the Docker image
-                    sh 'docker build -t ${DOCKER_IMAGE} .'
-                    
-                    // Push the Docker image to Docker Hub
+                    // Build Docker image for Spring Boot application
+                    sh 'docker build -t myapp:${BUILD_NUMBER} .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            environment {
+                DOCKER_IMAGE = "myapp:${BUILD_NUMBER}"
+                REGISTRY_CREDENTIALS = credentials('docker-cred')  // Jenkins credentials for Docker registry
+            }
+            agent {
+                docker {
+                    image 'docker:latest'  // Docker operations
+                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // Mount Docker socket
+                }
+            }
+            steps {
+                script {
+                    // Push Docker image to Docker Hub (or any Docker registry)
                     def dockerImage = docker.image("${DOCKER_IMAGE}")
                     docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
                         dockerImage.push()
                     }
                 }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                // Stop and remove MySQL container
+                sh 'docker stop mysql && docker rm mysql'
             }
         }
     }
