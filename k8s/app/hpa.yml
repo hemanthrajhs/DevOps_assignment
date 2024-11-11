@@ -1,0 +1,19 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: springboot-crud-hpa
+  namespace: default  # Adjust this to the appropriate namespace
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: springboot-crud-deployment  # Reference to the Deployment you want to scale
+  minReplicas: 2  # Minimum number of replicas
+  maxReplicas: 10  # Maximum number of replicas
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu  # You can also scale based on memory by using "memory" here
+        target:
+          type: Utilization
+          averageUtilization: 50  # Target CPU utilization percentage
