@@ -1,47 +1,43 @@
-stages {
+pipeline {
+    agent any  // Defines that the pipeline will run on any available agent
+
+    environment {
+        DOCKER_IMAGE = "hemanthrajhs/app-devops-assign:${BUILD_NUMBER}"
+        REGISTRY_CREDENTIALS = credentials('docker-cred')
+    }
+
+    stages {
         stage('Checkout') {
-            agent {
-                docker {
-                    image 'abhishekf5/maven-abhishek-docker-agent:v1'
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // mount Docker socket to access the host's Docker daemon
-                }
-            }
             steps {
-                sh 'echo passed'
-                // Uncomment to pull the repository
-                git branch: 'main', url: 'https://github.com/hemanthrajhs/DevOps_assignment'
+                script {
+                    // Using Docker image to run Git commands
+                    docker.image('abhishekf5/maven-abhishek-docker-agent:v1').inside('--user root -v /var/run/docker.sock:/var/run/docker.sock') {
+                        sh 'echo passed'
+                        // Uncomment to pull the repository
+                        git branch: 'main', url: 'https://github.com/hemanthrajhs/DevOps_assignment'
+                    }
+                }
             }
         }
 
         stage('Build and Test') {
-            agent {
-                docker {
-                    image 'abhishekf5/maven-abhishek-docker-agent:v1'
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'  // mount Docker socket to access the host's Docker daemon
-                }
-            }
             steps {
-                sh 'ls -ltr'
-                // Build the project and create a JAR file
-                sh 'mvn clean package'
+                script {
+                    // Using Docker image to run the build and tests
+                    docker.image('abhishekf5/maven-abhishek-docker-agent:v1').inside('--user root -v /var/run/docker.sock:/var/run/docker.sock') {
+                        sh 'ls -ltr'
+                        // Build the project and create a JAR file
+                        sh 'mvn clean package'
+                    }
+                }
             }
         }
 
         stage('Build and Push Docker Image') {
-            environment {
-                DOCKER_IMAGE = "hemanthrajhs/app-devops-assign:${BUILD_NUMBER}"
-                REGISTRY_CREDENTIALS = credentials('docker-cred')
-            }
-            agent {
-                docker {
-                    image 'docker:latest'  // Use a Docker image for Docker operations
-                    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-                }
-            }
             steps {
                 script {
                     // Build the Docker image
-                    sh 'docker build -t ${DOCKER_IMAGE} .'
+                    docker.build("${DOCKER_IMAGE}")
                     
                     // Push the Docker image to Docker Hub
                     def dockerImage = docker.image("${DOCKER_IMAGE}")
@@ -50,6 +46,18 @@ stages {
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline execution finished.'
+        }
+        success {
+            echo 'Build and deployment successful!'
+        }
+        failure {
+            echo 'Build failed.'
         }
     }
 }
