@@ -1,35 +1,30 @@
 pipeline {
-    agent any  // Defines that the pipeline will run on any available agent
+    agent {
+        docker {
+            image 'abhishekf5/maven-abhishek-docker-agent:v1'
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
+        }
+    }
 
     environment {
         DOCKER_IMAGE = "hemanthrajhs/app-devops-assign:${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
+        REGISTRY_CREDENTIALS = credentials('docker-cred')  // Ensure 'docker-cred' is a valid Jenkins credential ID
     }
 
     stages {
         stage('Checkout') {
             steps {
-                script {
-                    // Using Docker image to run Git commands
-                    docker.image('abhishekf5/maven-abhishek-docker-agent:v1').inside('--user root -v /var/run/docker.sock:/var/run/docker.sock') {
-                        sh 'echo passed'
-                        // Uncomment to pull the repository
-                        git branch: 'main', url: 'https://github.com/hemanthrajhs/DevOps_assignment'
-                    }
-                }
+                sh 'echo passed'
+                // Uncomment to pull the repository if needed
+                // git branch: 'main', url: 'https://github.com/iam-veeramalla/Jenkins-Zero-To-Hero.git'
             }
         }
 
         stage('Build and Test') {
             steps {
-                script {
-                    // Using Docker image to run the build and tests
-                    docker.image('abhishekf5/maven-abhishek-docker-agent:v1').inside('--user root -v /var/run/docker.sock:/var/run/docker.sock') {
-                        sh 'ls -ltr'
-                        // Build the project and create a JAR file
-                        sh 'mvn clean package'
-                    }
-                }
+                sh 'ls -ltr'
+                // Build the project and create a JAR file
+                sh 'mvn clean package'
             }
         }
 
@@ -37,7 +32,7 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image
-                    docker.build("${DOCKER_IMAGE}")
+                    sh "docker build -t ${DOCKER_IMAGE} ."
                     
                     // Push the Docker image to Docker Hub
                     def dockerImage = docker.image("${DOCKER_IMAGE}")
