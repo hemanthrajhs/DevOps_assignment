@@ -1,9 +1,10 @@
 pipeline {
     agent {
         docker {
-            image 'maven:3.8.6-openjdk-11'  // Maven image with OpenJDK 11
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // Mount Docker socket for Docker-in-Docker use cases
-        }
+      image 'abhishekf5/maven-abhishek-docker-agent:v1'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
+    }
+  }
     }
     stages {
         stage('Checkout') {
