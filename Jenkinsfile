@@ -1,16 +1,10 @@
 pipeline {
-    agent {
-        docker {
-            image 'abhishekf5/maven-abhishek-docker-agent:v1'
-            args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
-        }
-    }
-
+    agent any  // Use a generic agent for the pipeline
     stages {
         stage('Checkout') {
             steps {
                 sh 'echo passed'
-                // Uncomment the next line if you want to pull the repo
+                // Uncomment to pull the repository
                 // git branch: 'main', url: 'https://github.com/hemanthrajhs/DevOps_assignment'
             }
         }
@@ -37,7 +31,10 @@ pipeline {
             }
             steps {
                 script {
+                    // Build the Docker image
                     sh 'docker build -t ${DOCKER_IMAGE} .'
+                    
+                    // Push the Docker image to Docker Hub
                     def dockerImage = docker.image("${DOCKER_IMAGE}")
                     docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
                         dockerImage.push()
